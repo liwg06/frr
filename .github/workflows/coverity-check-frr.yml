@@ -1,0 +1,105 @@
+
+name: Coverity4frr
+
+#Run on push
+on:
+  push:
+    branches:
+      - master
+#Run once a day
+#on:
+#  schedule:
+#    - cron:  '20 0 * * *'
+
+jobs:
+  coverity:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: install deps
+      run: |
+        date 
+        pwd
+        sudo apt update -y
+        sudo apt install -y \
+               git autoconf automake libtool make libreadline-dev texinfo \
+               pkg-config libpam0g-dev libjson-c-dev bison flex \
+               libc-ares-dev python3-dev python3-sphinx \
+               install-info build-essential libsnmp-dev perl \
+               libcap-dev python2 libelf-dev libunwind-dev
+    - name: install libyang
+      run: |
+        date 
+        sudo apt install libpcre2-dev
+        cd /tmp/ ; \
+        ( mkdir libyang; cd libyang ; git clone https://github.com/CESNET/libyang.git ; cd libyang ; git checkout v2.0.0 ; mkdir build; cd build ; \
+        cmake -D CMAKE_INSTALL_PREFIX:PATH=/usr \
+              -D CMAKE_BUILD_TYPE:String="Release" .. ; \
+        make ; sudo make install ; rm -rf /tmp/libyang ; ); \
+        cd - ;
+        pwd
+    - name: install Protobuf
+      run: |
+        date 
+        sudo apt install -y protobuf-c-compiler libprotobuf-c-dev
+    - name: install ZeroMQ
+      run: |
+        date 
+        sudo apt install -y libzmq5 libzmq3-dev
+    - name: Add FRR user and groups
+      run: |
+        date 
+        sudo groupadd -r -g 92 frr ; \
+        sudo groupadd -r -g 85 frrvty ; \
+        sudo adduser --system --ingroup frr --home /var/run/frr/ \
+           --gecos "FRR suite" --shell /sbin/nologin frr ; \
+        sudo usermod -a -G frrvty frr || true
+    - name: config
+      run: |
+        date 
+        pwd
+        MyOwnFRRVersion=$(date -u -I)-$(git rev-parse --short HEAD)
+        ./bootstrap.sh
+        ./configure \
+            --prefix=/usr \
+            --includedir=\${prefix}/include \
+            --bindir=\${prefix}/bin \
+            --sbindir=\${prefix}/lib/frr \
+            --libdir=\${prefix}/lib/frr \
+            --libexecdir=\${prefix}/lib/frr \
+            --localstatedir=/var/run/frr \
+            --sysconfdir=/etc/frr \
+            --with-moduledir=\${prefix}/lib/frr/modules \
+            --with-libyang-pluginsdir=\${prefix}/lib/frr/libyang_plugins \
+            --enable-configfile-mask=0640 \
+            --enable-logfile-mask=0640 \
+            --enable-snmp=agentx \
+            --enable-multipath=64 \
+            --enable-user=frr \
+            --enable-group=frr \
+            --enable-vty-group=frrvty \
+            --with-pkg-git-version \
+            --with-pkg-extra-version=-\${MyOwnFRRVersion}
+    - name: tool download
+      run: |
+        time wget https://scan.coverity.com/download/linux64 \
+             --post-data "token=${{ secrets.COVERITY_TOKEN_FRR }}&project=${{ secrets.COVERITY_PROJECT_NAME }}" \
+             --progress=dot:giga -O coverity_tool.tgz
+    - name: tool install
+      run: |
+        ls -alh coverity_tool.tgz
+        time tar xzf coverity_tool.tgz
+    - name: make
+      run: time ./cov-analysis*/bin/cov-build --dir cov-int make -j2 || true
+    - name: archive
+      run: |
+        time tar czvf ${{ secrets.COVERITY_PROJECT_NAME }}.tgz cov-int
+        ls -alh *.tgz   
+    - name: Coverity upload
+      run: |
+        curl --form token="${{ secrets.COVERITY_TOKEN_FRR }}" \
+             --form email="${{ secrets.COVERITY_EMAIL_ADDR }}" \
+             --form file=@${{ secrets.COVERITY_PROJECT_NAME }}.tgz \
+             --form version="$(date -u -I)-$(git rev-parse --short HEAD)" \
+             --form description="analysis of $(git branch --show-current)" \
+             https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT_NAME }}
