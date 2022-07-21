@@ -39,6 +39,18 @@ static void vty_do_exit(int isexit)
 
 struct thread_master *master;
 
+DEFUN2 (grammar_init_graph2,
+       grammar_init_graph_cmd2,
+       "grammar2 init2",
+       "CLI grammar sandbox\n"
+       "CLI grammar sandbox 2\n"
+       "initialize graph\n"
+       "initialize graph2\n"
+       )
+{
+	return CMD_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
 	struct thread thread;
@@ -54,6 +66,9 @@ int main(int argc, char **argv)
 
 	vty_init(master, true);
 	lib_cmd_init();
+
+	install_element(ENABLE_NODE, &grammar_init_graph_cmd2);
+
 	nb_init(master, NULL, 0, false);
 
 	vty_stdio(vty_do_exit);

@@ -525,6 +525,9 @@ static const char *
 doc_next (struct parser_ctx *ctx)
 {
   const char *piece = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
+  if (ctx->el->flag & CMD_FLAG_SDK) {
+  	const char *piece2 = ctx->docstr ? strsep (&ctx->docstr, "\n") : "";
+  }
   if (*piece == 0x03)
   {
     zlog_err ("Ran out of docstring while parsing '%s'", ctx->el->string);

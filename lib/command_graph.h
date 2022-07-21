@@ -87,6 +87,8 @@ enum varname_src {
 	VARNAME_EXPLICIT,
 };
 
+#define CMD_FLAG_SDK 0x001
+
 /* Command token struct. */
 struct cmd_token {
 	enum cmd_token_type type; // token type
@@ -110,6 +112,7 @@ struct cmd_element {
 	const char *doc;    /* Documentation of this command. */
 	int daemon;	 /* Daemon to which this command belong. */
 	uint32_t attr;       /* Command attributes */
+	uint32_t flag;
 
 	/* handler function for command */
 	int (*func)(const struct cmd_element *, struct vty *, int,

@@ -257,6 +257,19 @@ struct cmd_node {
 	XREF_LINK(cmdname.xref);                                               \
 	/* end */
 
+#define DEFUN_CMD_ELEMENT2(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
+	static const struct cmd_element cmdname = {                            \
+		.string = cmdstr,                                              \
+		.func = funcname,                                              \
+		.doc = helpstr,                                                \
+		.attr = attrs,                                                 \
+		.daemon = dnum,                                                \
+		.flag = CMD_FLAG_SDK,                                                \
+		.name = #cmdname,                                              \
+		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
+	};                                                                     \
+	XREF_LINK(cmdname.xref);                                               \
+	/* end */
 
 #define DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	static int funcname(const struct cmd_element *, struct vty *, int,     \
@@ -293,6 +306,12 @@ struct cmd_node {
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
 	DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUN2(funcname, cmdname, cmdstr, helpstr)                              \
+	DEFUN_CMD_FUNC_DECL(funcname)                                          \
+	DEFUN_CMD_ELEMENT2(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
+	DEFUN_CMD_FUNC_TEXT(funcname)
+
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
