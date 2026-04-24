@@ -569,6 +569,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 			json_object_boolean_false_add(json_route, "offloaded");
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
 			json_object_boolean_true_add(json_route, "failed");
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_SEND_NHT_REMOVAL))
+			json_object_boolean_true_add(json_route, "kernelRemoved");
+
 		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
 		json_object_int_add(json_route, "vrfId", re->vrf_id);
 		json_object_string_add(json_route, "vrfName", vrf_id_to_name(re->vrf_id));
