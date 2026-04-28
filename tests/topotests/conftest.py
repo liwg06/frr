@@ -414,9 +414,7 @@ def check_for_core_dumps(item: pytest.Item | None = None) -> None:
                     )
                     continue
                 # topo_router.net dereferences the live netns and will raise
-                # KeyError once the topology has been stopped.
-                router = topo_router.net
-                backtrace = gdb_core(router, daemon_name, [core_file])
+                backtrace = gdb_core(topo_router, daemon_name, [core_file])
                 logger.error(
                     f"Core dump analysis for {router_name}:{daemon_name}:\n{backtrace}"
                 )

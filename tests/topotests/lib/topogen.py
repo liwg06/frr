@@ -832,6 +832,7 @@ class TopoRouter(TopoGear):
         logfile = self._setup_tmpdir()
         params["logdir"] = self.logdir
 
+        self.daemondir = params.get("frrdir")
         self.logger = topolog.get_logger(name, log_level="debug", target=logfile)
         params["logger"] = self.logger
         tgen.net.add_host(self.name, cls=cls, **params)
