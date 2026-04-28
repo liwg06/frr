@@ -5346,10 +5346,12 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct bgp *bgp = NULL;
 	bool delete_route = false;
 
-	bgp_aggregate_decrement(peer->bgp, bgp_dest_get_prefix(dest), pi, afi,
-				safi);
-
+	/* Skip for HISTORY routes: bgp_rib_withdraw already decremented before
+	 * bgp_damp_withdraw set BGP_PATH_HISTORY; bgp_damp_info_free handles
+	 * the eventual RIB cleanup.
+	 */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
+		bgp_aggregate_decrement(peer->bgp, bgp_dest_get_prefix(dest), pi, afi, safi);
 		bgp_path_info_mark_for_delete(dest, pi); /* keep historical info */
 
 		/* If the selected path is removed, reset BGP_NODE_SELECT_DEFER
@@ -5380,12 +5382,14 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 	 */
 	if (peer->sort == BGP_PEER_EBGP) {
 		if (get_active_bdc_from_pi(pi, afi, safi)) {
-			if (bgp_damp_withdraw(pi, dest, afi, safi, 0) ==
-			    BGP_DAMP_SUPPRESSED) {
-				bgp_aggregate_decrement(peer->bgp, p, pi, afi,
-							safi);
+			/* Decrement BEFORE bgp_damp_withdraw sets
+			 * BGP_PATH_HISTORY, which is part of BGP_PATH_UNUSEABLE
+			 * and would cause bgp_remove_route_from_aggregate to
+			 * skip the decrement via the BGP_PATH_HOLDDOWN check.
+			 */
+			bgp_aggregate_decrement(peer->bgp, p, pi, afi, safi);
+			if (bgp_damp_withdraw(pi, dest, afi, safi, 0) == BGP_DAMP_SUPPRESSED)
 				return;
-			}
 		}
 	}
 
