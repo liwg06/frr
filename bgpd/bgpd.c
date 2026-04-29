@@ -2646,9 +2646,8 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer_established(peer->connection)) {
 			if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
 				peer->afc_adv[afi][safi] = 1;
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_SET);
+				bgp_capability_send(peer->connection, afi, safi,
+						    CAPABILITY_CODE_MP, CAPABILITY_ACTION_SET);
 				if (peer->afc_recv[afi][safi]) {
 					peer->afc_nego[afi][safi] = 1;
 					bgp_announce_route(peer, afi, safi,
@@ -2803,9 +2802,8 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 			peer->afc_nego[afi][safi] = 0;
 
 			if (peer_active_nego(peer)) {
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_UNSET);
+				bgp_capability_send(peer->connection, afi, safi,
+						    CAPABILITY_CODE_MP, CAPABILITY_ACTION_UNSET);
 				bgp_clear_route(peer, afi, safi);
 				peer->pcount[afi][safi] = 0;
 			} else {
@@ -5250,7 +5248,7 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 		peer_notify_config_change(peer->connection);
 	} else if (type == peer_change_reset_in) {
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
 		else {
 			if ((peer->doppelganger) &&
@@ -6690,7 +6688,7 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_NORMAL);
 	}
 }
@@ -8934,7 +8932,7 @@ static void peer_reset_message_stats(struct peer *peer)
  */
 static void peer_clear_capabilities(struct peer *peer, afi_t afi, safi_t safi)
 {
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_FQDN,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_FQDN,
 			    CAPABILITY_ACTION_SET);
 }
 
@@ -9005,25 +9003,21 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			if (filter->plist[FILTER_IN].plist) {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_DEFER, 1,
-						BGP_ROUTE_REFRESH_NORMAL);
-				bgp_route_refresh_send(
-					peer, afi, safi, prefix_type,
-					REFRESH_IMMEDIATE, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi,
+							       prefix_type, REFRESH_DEFER, 1,
+							       BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(peer->connection, afi, safi, prefix_type,
+						       REFRESH_IMMEDIATE, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 			} else {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_IMMEDIATE, 1,
-						BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi,
+							       prefix_type, REFRESH_IMMEDIATE, 1,
+							       BGP_ROUTE_REFRESH_NORMAL);
 				else
-					bgp_route_refresh_send(
-						peer, afi, safi, 0, 0, 0,
-						BGP_ROUTE_REFRESH_NORMAL);
+					bgp_route_refresh_send(peer->connection, afi, safi, 0, 0,
+							       0, BGP_ROUTE_REFRESH_NORMAL);
 			}
 			return 0;
 		}
@@ -9038,9 +9032,8 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			   refresh
 			   message to the peer. */
 			if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_RCV))
-				bgp_route_refresh_send(
-					peer, afi, safi, 0, 0, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 			else
 				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
 		}

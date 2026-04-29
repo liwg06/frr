@@ -7156,9 +7156,8 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 			frrtrace(3, frr_bgp, upd_evpn_martian_change, peer->host,
 				 bgp_martian_type2str(martian_type), 0);
 
-			bgp_route_refresh_send(peer, afi, safi, 0,
-					       REFRESH_IMMEDIATE, 0,
-					       BGP_ROUTE_REFRESH_NORMAL);
+			bgp_route_refresh_send(peer->connection, afi, safi, 0, REFRESH_IMMEDIATE,
+					       0, BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 }
