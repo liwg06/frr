@@ -445,7 +445,7 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 * if peer is Established and updates are not on hold (as part of
 	 * update-delay processing).
 	 */
-	if (!peer_established(peer->connection))
+	if (!peer_established(connection))
 		return;
 
 	if ((peer->bgp->main_peers_update_hold)
@@ -460,11 +460,11 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 * processing is done and routes needs to be conditionally advertised or
 	 * withdrawn.
 	 */
-	if (peer->connection->t_routeadv && !CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING))
+	if (connection->t_routeadv && !CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING))
 		return;
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING)) {
-		if (peer->connection->t_routeadv && bgp_debug_neighbor_events(peer))
+		if (connection->t_routeadv && bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP: Pending conditional advertisement, ignoring MRAI timer",
 				   peer);
 	}
@@ -549,9 +549,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 					if (CHECK_FLAG(
 						    peer->af_sflags[afi][safi],
 						    PEER_STATUS_BORR_SEND)) {
-						bgp_route_refresh_send(peer->connection, afi, safi,
-								       0, 0, 0,
-								       BGP_ROUTE_REFRESH_EORR);
+						bgp_route_refresh_send(connection, afi, safi, 0, 0,
+								       0, BGP_ROUTE_REFRESH_EORR);
 
 						SET_FLAG(peer->af_sflags[afi]
 									[safi],
@@ -733,11 +732,11 @@ void bgp_open_send(struct peer_connection *connection)
  * Writes NOTIFICATION message directly to a peer socket without waiting for
  * the I/O thread.
  *
- * There must be exactly one stream on the peer->connection->obuf FIFO, and the
+ * There must be exactly one stream on the connection->obuf FIFO, and the
  * data within this stream must match the format of a BGP NOTIFICATION message.
  * Transmission is best-effort.
  *
- * @requires peer->connection->io_mtx
+ * @requires connection->io_mtx
  * @param connection
  * @return 0
  */
@@ -1760,7 +1759,7 @@ static int bgp_collision_detect(struct peer_connection *connection, struct in_ad
  * Side effects
  * ------------
  * - May send NOTIFY messages
- * - May not modify peer->connection->status
+ * - May not modify connection->status
  * - May not call bgp_event_update()
  */
 
@@ -2285,7 +2284,7 @@ static void bgp_update_receive_eor(struct peer_connection *connection, afi_t afi
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED);
 
 		/* update-delay related processing */
-		bgp_update_explicit_eors(peer->connection);
+		bgp_update_explicit_eors(connection);
 
 		/* graceful-restart related processing */
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
@@ -2342,13 +2341,10 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 	/* Status must be Established. */
 	if (!peer_established(connection)) {
-		flog_err(EC_BGP_INVALID_STATUS,
-			 "%s [FSM] Update packet received under status %s",
-			 peer->host,
-			 lookup_msg(bgp_status_msg, peer->connection->status,
-				    NULL));
+		flog_err(EC_BGP_INVALID_STATUS, "%s [FSM] Update packet received under status %s",
+			 peer->host, lookup_msg(bgp_status_msg, connection->status, NULL));
 		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
-				bgp_fsm_error_subcode(peer->connection->status));
+				bgp_fsm_error_subcode(connection->status));
 		return BGP_Stop;
 	}
 
@@ -2404,8 +2400,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			EC_BGP_UPDATE_PACKET_SHORT,
 			"%s [Error] Packet Error (update packet is short for attribute length)",
 			peer->host);
-		bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_MAL_ATTR);
+		bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR, BGP_NOTIFY_UPDATE_MAL_ATTR);
 		return BGP_Stop;
 	}
 
@@ -2779,12 +2774,10 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	/* Status must be Established. */
 	if (!peer_established(connection)) {
 		flog_err(EC_BGP_INVALID_STATUS,
-			 "%s [Error] Route refresh packet received under status %s",
-			 peer->host,
-			 lookup_msg(bgp_status_msg, peer->connection->status,
-				    NULL));
+			 "%s [Error] Route refresh packet received under status %s", peer->host,
+			 lookup_msg(bgp_status_msg, connection->status, NULL));
 		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
-				bgp_fsm_error_subcode(peer->connection->status));
+				bgp_fsm_error_subcode(connection->status));
 		return BGP_Stop;
 	}
 
@@ -3091,7 +3084,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
 		bgp_set_stale_route(peer, afi, safi);
 
-		if (peer_established(peer->connection))
+		if (peer_established(connection))
 			event_add_timer(bm->master,
 					bgp_refresh_stalepath_timer_expire, paf,
 					peer->bgp->stalepath_time,
@@ -3151,7 +3144,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				return BGP_PACKET_NOOP;
 			}
 
-			bgp_route_refresh_send(peer->connection, afi, safi, 0, 0, 0,
+			bgp_route_refresh_send(connection, afi, safi, 0, 0, 0,
 					       BGP_ROUTE_REFRESH_BORR);
 
 			if (bgp_debug_neighbor_events(peer))
