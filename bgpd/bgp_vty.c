@@ -6518,6 +6518,9 @@ DEFUN (neighbor_capability_enhe,
 	if (peer && peer->conf_if)
 		return CMD_SUCCESS;
 
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	ret = peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
 	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
@@ -6546,6 +6549,9 @@ DEFUN (no_neighbor_capability_enhe,
 			argv[idx_peer]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
