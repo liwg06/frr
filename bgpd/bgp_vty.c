@@ -3597,7 +3597,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 					bgp_update_graceful_restart_capability(peer);
 				else
-					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 							    CAPABILITY_CODE_RESTART,
 							    CAPABILITY_ACTION_SET);
 			}
@@ -3610,7 +3610,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 				bgp_update_graceful_restart_capability(peer);
 			else
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
 		}
 	}
@@ -3702,7 +3702,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 					bgp_update_graceful_restart_capability(peer);
 				else
-					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+					bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 							    CAPABILITY_CODE_RESTART,
 							    CAPABILITY_ACTION_UNSET);
 			}
@@ -3716,7 +3716,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
 				bgp_update_graceful_restart_capability(peer);
 			else
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+				bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
 						    CAPABILITY_CODE_RESTART,
 						    CAPABILITY_ACTION_UNSET);
 		}
@@ -3813,9 +3813,8 @@ DEFPY (bgp_graceful_restart_notification,
 		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART,
-				    CAPABILITY_ACTION_SET);
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
@@ -3858,12 +3857,10 @@ DEFUN (bgp_graceful_restart_disable,
 			"Graceful restart configuration changed, reset all peers to take effect\n");
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_UNSET);
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_LLGR,
-					    CAPABILITY_ACTION_UNSET);
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_UNSET);
 		}
 	}
 
@@ -4224,8 +4221,8 @@ DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
 	bgp->llgr_stale_time = llgr_stale_time;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
+				    CAPABILITY_ACTION_SET);
 
 	return CMD_SUCCESS;
 }
@@ -4244,8 +4241,7 @@ DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-		bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_LLGR,
+		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
 				    CAPABILITY_ACTION_UNSET);
 
 	return CMD_SUCCESS;
@@ -6499,9 +6495,8 @@ DEFPY (neighbor_capability_fqdn,
 		ret = peer_flag_set_vty(vty, neighbor,
 					PEER_FLAG_CAPABILITY_FQDN);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
-			    no ? CAPABILITY_ACTION_UNSET
-			       : CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_FQDN,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6523,9 +6518,13 @@ DEFUN (neighbor_capability_enhe,
 	if (peer && peer->conf_if)
 		return CMD_SUCCESS;
 
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	ret = peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
+			    CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -6551,9 +6550,12 @@ DEFUN (no_neighbor_capability_enhe,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
 			    CAPABILITY_ACTION_UNSET);
 
 	return ret;
@@ -6584,7 +6586,7 @@ DEFPY(neighbor_capability_software_version,
 	else
 		ret = peer_flag_set_vty(vty, neighbor, encoding);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_SOFT_VERSION,
 			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -6612,7 +6614,7 @@ DEFPY(neighbor_capability_link_local,
 	else
 		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
 			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -6698,7 +6700,7 @@ DEFUN (neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "send")) {
 		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6706,7 +6708,7 @@ DEFUN (neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "receive")) {
 		ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6716,7 +6718,7 @@ DEFUN (neighbor_capability_orf_prefix,
 					   PEER_FLAG_ORF_PREFIX_SM) |
 		      peer_af_flag_set_vty(vty, peer_str, afi, safi,
 					   PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_SET);
 		return ret;
 	}
@@ -6763,7 +6765,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "send")) {
 		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_SM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -6771,7 +6773,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 	if (strmatch(argv[idx_send_recv]->text, "receive")) {
 		ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -6781,7 +6783,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 					     PEER_FLAG_ORF_PREFIX_SM) |
 		      peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 					     PEER_FLAG_ORF_PREFIX_RM);
-		bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ORF,
+		bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_ORF,
 				    CAPABILITY_ACTION_UNSET);
 		return ret;
 	}
@@ -7755,7 +7757,7 @@ DEFPY(neighbor_role,
 
 	ret = peer_role_set_vty(vty, peer, role, false);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -7779,7 +7781,7 @@ DEFPY(neighbor_role_strict,
 
 	ret = peer_role_set_vty(vty, peer, role, true);
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -7804,7 +7806,7 @@ DEFPY(no_neighbor_role,
 
 	ret = bgp_vty_return(vty, peer_role_unset(peer));
 
-	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
+	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
 			    CAPABILITY_ACTION_UNSET);
 
 	return ret;
@@ -10083,7 +10085,7 @@ DEFPY (neighbor_addpath_paths_limit,
 
 	peer->addpath_paths_limit[afi][safi].send = paths_limit;
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;
@@ -10112,7 +10114,7 @@ DEFPY (no_neighbor_addpath_paths_limit,
 
 	peer->addpath_paths_limit[afi][safi].send = 0;
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
 			    CAPABILITY_ACTION_SET);
 
 	return ret;

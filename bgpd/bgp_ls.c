@@ -955,15 +955,12 @@ int bgp_ls_originate_bgp_node(struct bgp *bgp)
 	return 0;
 }
 
-static struct interface *bgp_ls_get_ifp_from_connection(struct peer *peer,
-							struct peer_connection *connection)
+static struct interface *bgp_ls_get_ifp_from_connection(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
 	struct interface *ifp = NULL;
 
-	if (!peer || !peer->bgp)
-		return NULL;
-
-	if (connection && connection->su_local) {
+	if (connection->su_local) {
 		if (connection->su_local->sa.sa_family == AF_INET) {
 			ifp = if_lookup_by_ipv4_exact(&connection->su_local->sin.sin_addr,
 						      peer->bgp->vrf_id);
@@ -1024,7 +1021,7 @@ int bgp_ls_originate_bgp_link(struct bgp *bgp, struct peer *peer)
 	}
 
 	connection = peer->connection;
-	ifp = bgp_ls_get_ifp_from_connection(peer, connection);
+	ifp = bgp_ls_get_ifp_from_connection(connection);
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID) && !ifp) {
 		zlog_err("BGP-LS: Cannot originate BGP link NLRI for peer %s: missing local link-id and interface",
@@ -1319,8 +1316,8 @@ static struct bgp_ls_nlri *bgp_ls_lookup_bgp_link_nlri(struct bgp *bgp, struct p
 	uint32_t expected_local_link_id = 0;
 	uint32_t expected_remote_link_id = 0;
 
-	connection = peer ? peer->connection : NULL;
-	ifp = bgp_ls_get_ifp_from_connection(peer, connection);
+	connection = peer->connection;
+	ifp = bgp_ls_get_ifp_from_connection(connection);
 
 	expect_link_id = CHECK_FLAG(peer->flags, PEER_FLAG_LS_LOCAL_LINK_ID) || (ifp != NULL);
 	if (expect_link_id) {

@@ -488,13 +488,13 @@ void bgp_timer_set(struct peer_connection *connection)
 		}
 		break;
 	case Deleted:
-		event_cancel(&peer->connection->t_gr_restart);
-		event_cancel(&peer->connection->t_gr_stale);
+		event_cancel(&connection->t_gr_restart);
+		event_cancel(&connection->t_gr_stale);
 
 		FOREACH_AFI_SAFI (afi, safi)
 			event_cancel(&peer->t_llgr_stale[afi][safi]);
 
-		event_cancel(&peer->connection->t_pmax_restart);
+		event_cancel(&connection->t_pmax_restart);
 		event_cancel(&peer->t_refresh_stalepath);
 		fallthrough;
 	case Clearing:
@@ -676,9 +676,9 @@ const char *const peer_down_str[] = {
 	"Cease: subcode unknown",
 };
 
-static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
-					   struct peer *peer)
+static void bgp_graceful_restart_timer_off(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
 	afi_t afi;
 	safi_t safi;
 
@@ -728,7 +728,7 @@ static void bgp_llgr_stale_timer_expire(struct event *event)
 
 	bgp_clear_stale_route(peer, afi, safi);
 
-	bgp_graceful_restart_timer_off(peer->connection, peer);
+	bgp_graceful_restart_timer_off(peer->connection);
 }
 
 static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
@@ -867,7 +867,7 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 		}
 	}
 
-	bgp_graceful_restart_timer_off(connection, peer);
+	bgp_graceful_restart_timer_off(connection);
 }
 
 static void bgp_graceful_stale_timer_expire(struct event *event)
@@ -1420,7 +1420,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 				  bgp->v_update_delay);
 		}
 		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
-			bgp_update_restarted_peers(peer);
+			bgp_update_restarted_peers(peer->connection);
 	}
 	if (peer->connection->ostatus == Established && bgp_update_delay_active(bgp)) {
 		/* Adjust the update-delay state to account for this flap.
@@ -2507,9 +2507,8 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	peer->v_delayopen = peer->delayopen;
 
 	/* Start the DelayOpenTimer if it is not already running */
-	if (!peer->connection->t_delayopen)
-		BGP_TIMER_ON(peer->connection->t_delayopen, bgp_delayopen_timer,
-			     peer->v_delayopen);
+	if (!connection->t_delayopen)
+		BGP_TIMER_ON(connection->t_delayopen, bgp_delayopen_timer, peer->v_delayopen);
 
 	frrtrace(2, frr_bgp, session_state_change, peer, 6);
 	if (bgp_debug_neighbor_events(peer))
@@ -2672,8 +2671,8 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				   peer->host, connection->fd,
 				   bgp_peer_get_connection_direction_string(connection));
 		if (connection->fd < 0) {
-			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d",
-				 __func__, peer->connection->fd);
+			flog_err(EC_BGP_FSM, "%s peer's fd is negative value %d", __func__,
+				 connection->fd);
 			return BGP_FSM_FAILURE;
 		}
 		bgp_connect_in_progress_update_connection(connection);
@@ -2945,10 +2944,9 @@ bgp_establish(struct peer_connection *connection)
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				bgp_route_refresh_send(
-					peer, afi, safi, ORF_TYPE_PREFIX,
-					REFRESH_IMMEDIATE, 0,
-					BGP_ROUTE_REFRESH_NORMAL);
+				bgp_route_refresh_send(connection, afi, safi, ORF_TYPE_PREFIX,
+						       REFRESH_IMMEDIATE, 0,
+						       BGP_ROUTE_REFRESH_NORMAL);
 		}
 	}
 
@@ -2976,9 +2974,8 @@ bgp_establish(struct peer_connection *connection)
 	 * of read-only mode.
 	 */
 	if (!bgp_update_delay_active(bgp)) {
-		event_cancel(&peer->connection->t_routeadv);
-		BGP_TIMER_ON(peer->connection->t_routeadv, bgp_routeadv_timer,
-			     0);
+		event_cancel(&connection->t_routeadv);
+		BGP_TIMER_ON(connection->t_routeadv, bgp_routeadv_timer, 0);
 	}
 
 	if (peer->doppelganger &&

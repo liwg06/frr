@@ -4243,11 +4243,11 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr,
 
 /* Read attribute of update packet.  This function is called from
    bgp_update_receive() in bgp_packet.c.  */
-enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
-				       bgp_size_t size,
-				       struct bgp_nlri *mp_update,
+enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struct attr *attr,
+				       bgp_size_t size, struct bgp_nlri *mp_update,
 				       struct bgp_nlri *mp_withdraw)
 {
+	struct peer *peer = connection->peer;
 	enum bgp_attr_parse_ret ret;
 	uint8_t flag = 0;
 	uint8_t type = 0;
@@ -4262,7 +4262,6 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	as_t as4_aggregator = 0;
 	struct in_addr as4_aggregator_addr = {.s_addr = 0};
 	struct transit *transit;
-	struct peer_connection *connection = peer->connection;
 
 	/* Initialize bitmap. */
 	memset(seen, 0, BGP_ATTR_BITMAP_SIZE);
